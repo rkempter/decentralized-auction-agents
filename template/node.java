@@ -16,7 +16,6 @@ public class node {
 	private double costs;
 	private Vehicle vehicle;
 	private City nodeCity;
-	private ArrayList<ArrayList<Object>> hashTable;
 	private enum Algorithm { BFS, ASTAR };
 	private Algorithm algorithm;
 
@@ -36,9 +35,8 @@ public class node {
 	 * @param _hashTable
 	 * @param alg
 	 */
-	public node(Vehicle _vehicle, City _nodeCity, ArrayList<ArrayList<Object>> _nodeState, int _capacity, double _costs, node _parent, ArrayList<ArrayList<Object>> _hashTable, String alg){
+	public node(Vehicle _vehicle, City _nodeCity, ArrayList<ArrayList<Object>> _nodeState, int _capacity, double _costs, node _parent, String alg){
 		algorithm= Algorithm.valueOf(alg.toUpperCase());
-		hashTable= _hashTable;
 		nodeState = _nodeState;
 		vehicle = _vehicle;
 		capacity = _capacity;
@@ -46,37 +44,6 @@ public class node {
 		parent = _parent;
 		nodeCity = _nodeCity;
 		children= new ArrayList<node>();
-	}
-
-	/**
-	 * Used for Breath first search: We don't care about the best solution,
-	 * Therefore, if we arrive at a state, where the same tasks are delivered and picked up,
-	 * we don't expand the node anymore.
-	 * 
-	 * @param state
-	 * @param newCost
-	 * @return true / false
-	 */
-	public boolean computeHash(ArrayList<ArrayList<Object>> state, double newCost){
-		int hashCode = state.hashCode();
-		boolean present = false;
-		boolean shouldAddNode = true;
-
-		for(int i=0; i< hashTable.size(); i++){
-			if(hashTable.get(i).get(0).equals(hashCode)){
-				present = true;
-				if(algorithm.equals(Algorithm.BFS)) {
-					shouldAddNode = false;
-				}
-			}
-		}	
-		if(present == false) {
-			hashTable.add(new ArrayList<Object>());
-			hashTable.get(hashTable.size()-1).add(state.hashCode());
-			hashTable.get(hashTable.size()-1).add(this);
-		}
-
-		return shouldAddNode;
 	}
 
 	/**
@@ -165,15 +132,14 @@ public class node {
 		double newCost = calculateCost(currentTaskNode, currentTaskNodeTask, currentTaskNode.get(1));
 		int newCapacity = calculateCapacity(capacity, currentTaskNodeTask, currentTaskNode.get(1));
 		
-		if(computeHash(newState, newCost)){
-			if(currentTaskNode.get(1).equals(PICKEDUP)) {
-				child = new node(vehicle, currentTaskNodeTask.pickupCity, newState, newCapacity, newCost, this, hashTable, algorithm.name());
-			}
-			else {
-				child = new node(vehicle, currentTaskNodeTask.deliveryCity, newState, newCapacity, newCost, this, hashTable, algorithm.name());
-			}
-			children.add(child);
+		if(currentTaskNode.get(1).equals(PICKEDUP)) {
+			child = new node(vehicle, currentTaskNodeTask.pickupCity, newState, newCapacity, newCost, this, algorithm.name());
 		}
+		else {
+			child = new node(vehicle, currentTaskNodeTask.deliveryCity, newState, newCapacity, newCost, this, algorithm.name());
+		}
+		children.add(child);
+		
 		return child;
 	}
 
