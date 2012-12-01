@@ -118,7 +118,7 @@ public class node {
 		double newCost = calculateCost(currentTaskNode, currentTaskNodeTask, currentActionState);
 		int newCapacity = calculateCapacity(capacity, currentTaskNodeTask, currentActionState);
 		
-		if(currentActionState == actionStates.PICKEDUP) {
+		if(currentActionState == actionStates.INITSTATE) {
 			child = new node(vehicle, currentTaskNodeTask.pickupCity, newState, newCapacity, newCost, this);
 		}
 		else {
@@ -202,7 +202,7 @@ public class node {
 	}
 
 	public void printState() {
-		//System.out.println(nodeState);
+		System.out.println("City: "+this.nodeCity+" with state: "+nodeState);
 	}
 	
 	public int getCapacity() {

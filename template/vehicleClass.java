@@ -8,6 +8,7 @@ import java.util.PriorityQueue;
 import logist.plan.Plan;
 import logist.simulation.Vehicle;
 import logist.task.Task;
+import logist.task.TaskSet;
 import logist.topology.Topology.City;
 
 public class vehicleClass {
@@ -65,12 +66,20 @@ public class vehicleClass {
 		return returnList;
 	}
 	
+	private ArrayList<node> cloneNodeList(ArrayList<node> list) {
+		ArrayList<node> returnList = new ArrayList<node>();
+		
+		for(int i = 0; i < list.size(); i++) {
+			returnList.add(list.get(i));
+		}
+		
+		return returnList;
+	}
+	
 	public void addTask(Task task) {
 		this.intermediateTaskList.clear();
 		this.intermediateTaskList = cloneTaskList(this.taskList);
-		System.out.println("Intermediate TaskList: "+this.intermediateTaskList);
 		this.intermediateTaskList.add(task);
-		System.out.println("Adding Task: "+this.intermediateTaskList);
 	}
 	
 	public double getOffer(Task newProposedTask) {
@@ -83,6 +92,7 @@ public class vehicleClass {
 		int i = 0;
 		
 		while(!AuctionTemplate.checkGoalState(currentState)) {
+			System.out.println("State: "+currentState);
 			ArrayList<node> childQueue = currentNode.expandNodes();
 			nodeQueue.addAll(childQueue);
 			try{
@@ -131,39 +141,51 @@ public class vehicleClass {
 	public void acceptTask() {
 		this.lastCosts = this.intermediateCosts;
 		this.lastGoalNode = this.intermediateGoalNode;
-		this.lastVisitedNodes = this.intermediateVisitedNodes;
+		this.lastVisitedNodes = cloneNodeList(this.intermediateVisitedNodes);
 		this.taskList = cloneTaskList(this.intermediateTaskList);
 	}
 	
-	public Plan getPath() {
+	public Plan getPath(TaskSet tasks) {
 		// Do backtracking
 		node currentNode = this.lastGoalNode;
 		ArrayList<node> path = new ArrayList<node>();
 
 		while(currentNode != null) {
+			currentNode.printState();
 			path.add(currentNode);
-			currentNode = currentNode.getParent();
+			currentNode = currentNode.getParent();	
 		}
 		
 		Collections.reverse(path);
 		System.out.println("Path: "+path);
 		
-		Plan optimalPlan = new Plan(path.get(0).getCity());
+		City current = path.get(0).getCity();
+		
+		Plan optimalPlan = new Plan(current);
+		System.out.println("Startcity: "+current);
+		
 		for(int i = 1; i < path.size() ; i++) {
-			for(City city : path.get(i-1).getCity().pathTo(path.get(i).getCity())){
+			currentNode = path.get(i);
+			City nextCity = currentNode.getCity();
+			for(City city : current.pathTo(nextCity)) {
+				System.out.println("City: "+city);
 				optimalPlan.appendMove(city);
 			}
-			int stateSize = path.get(i).getState().size();
+			
+			int stateSize = currentNode.getState().size();
 			for(int j=0; j< stateSize; j++) {
-				if(!path.get(i).getState().get(j).get(1).equals(path.get(i-1).getState().get(j).get(1))) {
-					actionStates action = (actionStates) path.get(i).getState().get(j).get(1);			// switch pickup or delivery
+				actionStates currentNodeAction = (actionStates) currentNode.getState().get(j).get(1);
+				actionStates lastNodeAction = (actionStates) path.get(i-1).getState().get(j).get(1);
+				if(currentNodeAction != lastNodeAction) {
 					Task currentTask = (Task) path.get(i).getState().get(j).get(0);
 
-					switch(action) {
+					switch(currentNodeAction) {
 					case PICKEDUP:
+						System.out.println("Pickup: "+currentTask);
 						optimalPlan.appendPickup(currentTask);
 						break;
 					case DELIVERED:
+						System.out.println("Deliver: "+currentTask);
 						optimalPlan.appendDelivery(currentTask);
 						break;
 					default:
@@ -171,7 +193,9 @@ public class vehicleClass {
 					}
 				}
 			}
+			current = nextCity;
 		}
+		System.out.println(optimalPlan);
 		return optimalPlan;
 	}
 	
