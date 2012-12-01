@@ -6,10 +6,7 @@ import logist.task.Task;
 import logist.topology.Topology.City;
 
 public class nodeComparator implements Comparator<node>{
-	
-	private static final int INITSTATE = 0;
-	private static final int PICKEDUP = 1;
-	private static final int DELIVERED = 2;
+
 
 	/**
 	 * Compares two nodes and checks which one has the higher reward.
@@ -59,25 +56,25 @@ public class nodeComparator implements Comparator<node>{
 		actionStates minStatus = null;
 		Task bestTask = null;
 		
-		while(!agentClass.checkGoalState(states)) {
+		while(!AuctionTemplate.checkGoalState(states)) {
 			double min = 100000;
 			for(int i = 0; i < states.size(); i++) {
-				if(states.get(i).get(1).equals(DELIVERED)) {
+				if((actionStates) states.get(i).get(1) == actionStates.DELIVERED) {
 					continue;
 				}
 				
 				Task currentTask = (Task) states.get(i).get(0);
-				Object currentTaskStatus = states.get(i).get(1);
+				actionStates currentTaskStatus = (actionStates) states.get(i).get(1);
 				int currentTaskWeight = currentTask.weight;
 				
-				if(currentTaskStatus.equals(INITSTATE) && currentTaskWeight < capacity) {
+				if(currentTaskStatus == actionStates.INITSTATE && currentTaskWeight < capacity) {
 					distance = (double) currentCity.distanceTo(currentTask.pickupCity);
 					if(distance < min) {
 						min = distance;
 						minAt = i;
 						minStatus = actionStates.INITSTATE;
 					}
-				} else if(currentTaskStatus.equals(PICKEDUP)) {
+				} else if(currentTaskStatus == actionStates.PICKEDUP) {
 					distance = (double) currentCity.distanceTo(currentTask.deliveryCity);
 					if(distance < min) {
 						min = distance;
@@ -90,13 +87,13 @@ public class nodeComparator implements Comparator<node>{
 			// Adjust the parameters depending on the state transition
 			switch(minStatus) {
 			case INITSTATE:
-				states.get(minAt).set(1, PICKEDUP);
+				states.get(minAt).set(1, actionStates.PICKEDUP);
 				bestTask = (Task) states.get(minAt).get(0);
 				currentCity = bestTask.pickupCity;
 				capacity -= bestTask.weight;
 				break;
 			case PICKEDUP:
-				states.get(minAt).set(1, DELIVERED);
+				states.get(minAt).set(1, actionStates.DELIVERED);
 				bestTask = (Task) states.get(minAt).get(0);
 				currentCity = bestTask.deliveryCity;
 				capacity += bestTask.weight;

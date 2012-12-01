@@ -16,12 +16,6 @@ public class node {
 	private double costs;
 	private Vehicle vehicle;
 	private City nodeCity;
-	private enum Algorithm { BFS, ASTAR };
-	private Algorithm algorithm;
-
-	private static final int INITSTATE = 0;
-	private static final int PICKEDUP = 1;
-	private static final int DELIVERED = 2;
 
 	/**
 	 * Constructor of a node
@@ -35,8 +29,7 @@ public class node {
 	 * @param _hashTable
 	 * @param alg
 	 */
-	public node(Vehicle _vehicle, City _nodeCity, ArrayList<ArrayList<Object>> _nodeState, int _capacity, double _costs, node _parent, String alg){
-		algorithm= Algorithm.valueOf(alg.toUpperCase());
+	public node(Vehicle _vehicle, City _nodeCity, ArrayList<ArrayList<Object>> _nodeState, int _capacity, double _costs, node _parent){
 		nodeState = _nodeState;
 		vehicle = _vehicle;
 		capacity = _capacity;
@@ -66,16 +59,6 @@ public class node {
 	}
 
 	/**
-	 * All tasks, that are on the current city (vehicle position)
-	 * and haven't been moved yet, are extracted from the currentState
-	 * into a subState. Based on the substate, we calculate the possible
-	 * next global states
-	 * 
-	 * @param currentState
-	 * @return subState
-	 */
-
-	/**
 	 * Computes all the possible children states of the current node
 	 * 
 	 * @param currentState
@@ -86,7 +69,8 @@ public class node {
 
 		for(int i = 0; i < currentState.size(); i++) {
 			Integer pos = new Integer(i);
-			if(currentState.get(i).get(1).equals(INITSTATE) || currentState.get(i).get(1).equals(PICKEDUP)) {
+			actionStates currentActionState = (actionStates) currentState.get(i).get(1);
+			if(currentActionState == actionStates.INITSTATE || currentActionState == actionStates.PICKEDUP) {
 				subState.add(pos);
 			}
 		}
@@ -104,6 +88,7 @@ public class node {
 		ArrayList<ArrayList<Object>> newState= new ArrayList<ArrayList<Object>>();
 		node child = null;
 		ArrayList<Object> currentTaskNode = nodeState.get(selectedTaskIndex);
+		actionStates currentActionState = (actionStates) currentTaskNode.get(1);
 
 		for(int i=0; i<nodeState.size(); i++){
 			newState.add(new ArrayList<Object>());
@@ -111,7 +96,7 @@ public class node {
 			newState.get(i).add(nodeState.get(i).get(1));			
 		}
 
-		if(currentTaskNode.get(1).equals(PICKEDUP)) {		 //selected task is PICKEDUP
+		if(currentActionState == actionStates.PICKEDUP) {		 //selected task is PICKEDUP
 			child = calculateNewStateParameters(newState.get(selectedTaskIndex), newState);
 		} else if(capacity >= ((Task) currentTaskNode.get(0)).weight) {
 			child = calculateNewStateParameters(newState.get(selectedTaskIndex), newState);
@@ -129,14 +114,15 @@ public class node {
 	private node calculateNewStateParameters(ArrayList<Object> currentTaskNode, ArrayList<ArrayList<Object>> newState) {
 		node child = null;
 		Task currentTaskNodeTask = (Task) currentTaskNode.get(0);
-		double newCost = calculateCost(currentTaskNode, currentTaskNodeTask, currentTaskNode.get(1));
-		int newCapacity = calculateCapacity(capacity, currentTaskNodeTask, currentTaskNode.get(1));
+		actionStates currentActionState = (actionStates) currentTaskNode.get(1);
+		double newCost = calculateCost(currentTaskNode, currentTaskNodeTask, currentActionState);
+		int newCapacity = calculateCapacity(capacity, currentTaskNodeTask, currentActionState);
 		
-		if(currentTaskNode.get(1).equals(PICKEDUP)) {
-			child = new node(vehicle, currentTaskNodeTask.pickupCity, newState, newCapacity, newCost, this, algorithm.name());
+		if(currentActionState == actionStates.PICKEDUP) {
+			child = new node(vehicle, currentTaskNodeTask.pickupCity, newState, newCapacity, newCost, this);
 		}
 		else {
-			child = new node(vehicle, currentTaskNodeTask.deliveryCity, newState, newCapacity, newCost, this, algorithm.name());
+			child = new node(vehicle, currentTaskNodeTask.deliveryCity, newState, newCapacity, newCost, this);
 		}
 		children.add(child);
 		
@@ -152,13 +138,13 @@ public class node {
 	 * @param taskState
 	 * @return
 	 */
-	private double calculateCost(ArrayList<Object> currentTaskNode, Task currentTaskNodeTask, Object taskState) {
+	private double calculateCost(ArrayList<Object> currentTaskNode, Task currentTaskNodeTask, actionStates taskState) {
 		double newCost = 0;
-		if(taskState.equals(PICKEDUP)) {
+		if(taskState == actionStates.PICKEDUP) {
 			deliverTask(currentTaskNode, currentTaskNodeTask.deliveryCity);
 			newCost = costs + (nodeCity.distanceTo(currentTaskNodeTask.deliveryCity) * vehicle.costPerKm());
-		} else if (taskState.equals(INITSTATE)){
-			currentTaskNode.set(1, PICKEDUP);
+		} else if (taskState == actionStates.INITSTATE){
+			currentTaskNode.set(1, actionStates.PICKEDUP);
 			newCost = costs + (nodeCity.distanceTo(currentTaskNodeTask.pickupCity) * vehicle.costPerKm());
 		}	
 		return newCost;
@@ -173,9 +159,9 @@ public class node {
 	 * @param taskState
 	 * @return int
 	 */
-	private int calculateCapacity(int capacity, Task currentTaskNodeTask, Object taskState) {
+	private int calculateCapacity(int capacity, Task currentTaskNodeTask, actionStates taskState) {
 		int newCapacity = 0;
-		if(taskState.equals(PICKEDUP)) {
+		if(taskState == actionStates.PICKEDUP) {
 			newCapacity = capacity - currentTaskNodeTask.weight;
 		} else {
 			newCapacity = capacity + currentTaskNodeTask.weight;
@@ -190,8 +176,8 @@ public class node {
 	 * @param city
 	 */
 	private void deliverTask(ArrayList<Object> currentTaskNode, City city) {
-		if( ((Task) currentTaskNode.get(0)).deliveryCity == city && currentTaskNode.get(1).equals(PICKEDUP)) {
-			currentTaskNode.set(1, DELIVERED);
+		if( ((Task) currentTaskNode.get(0)).deliveryCity == city && (actionStates) currentTaskNode.get(1) == actionStates.PICKEDUP) {
+			currentTaskNode.set(1, actionStates.DELIVERED);
 		}
 	}
 

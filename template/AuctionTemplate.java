@@ -28,8 +28,11 @@ public class AuctionTemplate implements AuctionBehavior {
 	private TaskDistribution distribution;
 	private Agent agent;
 	private Random random;
-	private Vehicle vehicle;
+	private List<Vehicle> vehicleList;
 	private City currentCity;
+	private List<vehicleClass> vehicleObjectList;
+	
+	private int currentTaskToVehicle = 0;
 
 	@Override
 	public void setup(Topology topology, TaskDistribution distribution,
@@ -38,49 +41,58 @@ public class AuctionTemplate implements AuctionBehavior {
 		this.topology = topology;
 		this.distribution = distribution;
 		this.agent = agent;
-		this.vehicle = agent.vehicles().get(0);
-		this.currentCity = vehicle.homeCity();
-
-		long seed = -9019554669489983951L * currentCity.hashCode() * agent.id();
-		this.random = new Random(seed);
+		this.vehicleList = agent.vehicles();
+		this.vehicleObjectList = new ArrayList<vehicleClass>();
+		
+		for(int i = 0; i < this.vehicleList.size(); i++) {
+			vehicleClass newVehicleObject = new vehicleClass(this.vehicleList.get(i));
+			this.vehicleObjectList.add(newVehicleObject);
+			System.out.println("Vehicle starts here: "+this.vehicleList.get(i).getCurrentCity());
+		}
 	}
 
-	@Override
-	public void auctionResult(Task previous, int winner, Long[] bids) {
+
+	public void auctionResult(Task previous, int winner, Long[] bids) {		
 		if (winner == agent.id()) {
-			currentCity = previous.deliveryCity;
+			this.vehicleObjectList.get(this.currentTaskToVehicle).acceptTask();
 		}
 	}
 	
 	@Override
 	public Long askPrice(Task task) {
+		
+		// Start computation for marginalCost
+		
+		double minOffer = 100000;
+		int i = 0;
+		for(i = 0; i < this.vehicleObjectList.size(); i++) {
+			this.vehicleObjectList.get(i).addTask(task);
+			double offer = this.vehicleObjectList.get(i).getOffer(task);
+			System.out.println("The offer of vehicle "+i+" is: "+offer);
+			if(offer <= minOffer) {
+				minOffer = offer;
+				this.currentTaskToVehicle = i;
+			}
+		}
+		System.out.println("-------------");
+		System.out.println("Vehicle "+this.currentTaskToVehicle+" gets the task!");
+		System.out.println("Vehicle 0 has the following tasklist: "+this.vehicleObjectList.get(0).getTaskList());
+		System.out.println("Vehicle 1 has the following tasklist: "+this.vehicleObjectList.get(1).getTaskList());
+		System.out.println("Offer: "+minOffer);
 
-		if (vehicle.capacity() < task.weight)
-			return null;
-
-		long distanceTask = task.pickupCity.distanceUnitsTo(task.deliveryCity);
-		long distanceSum = distanceTask
-				+ currentCity.distanceUnitsTo(task.pickupCity);
-		double marginalCost = Measures.unitsToKM(distanceSum
-				* vehicle.costPerKm());
-
-		double ratio = 1.0 + (random.nextDouble() * 0.05 * task.id);
-		double bid = ratio * marginalCost;
-
-		return (long) Math.round(bid);
+		return (long) Math.round(minOffer);
 	}
 
 	@Override
 	public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
 		
 //		System.out.println("Agent " + agent.id() + " has tasks " + tasks);
-
-		Plan planVehicle1 = naivePlan(vehicle, tasks);
-
+		
 		List<Plan> plans = new ArrayList<Plan>();
-		plans.add(planVehicle1);
-		while (plans.size() < vehicles.size())
-			plans.add(Plan.EMPTY);
+		for(int i = 0; i < vehicles.size(); i++) {
+			Plan newPlan = this.vehicleObjectList.get(i).getPath();
+			plans.add(newPlan);
+		}
 
 		return plans;
 	}
@@ -106,5 +118,16 @@ public class AuctionTemplate implements AuctionBehavior {
 			current = task.deliveryCity;
 		}
 		return plan;
+	}
+	
+	public static boolean checkGoalState(ArrayList<ArrayList<Object>> state) {
+		int stateSize = state.size();
+		for(int i = 0; i < stateSize; i++) {
+			actionStates currentStateAction = (actionStates) state.get(i).get(1);
+			if(currentStateAction != actionStates.DELIVERED) {
+				return false;
+			}
+		}
+		return true;
 	}
 }
