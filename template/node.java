@@ -202,7 +202,7 @@ public class node {
 	}
 
 	public void printState() {
-		System.out.println("City: "+this.nodeCity+" with state: "+nodeState);
+		//System.out.println("City: "+this.nodeCity+" with state: "+nodeState);
 	}
 	
 	public int getCapacity() {

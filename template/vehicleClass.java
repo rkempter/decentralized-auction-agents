@@ -8,7 +8,7 @@ import java.util.PriorityQueue;
 import logist.plan.Plan;
 import logist.simulation.Vehicle;
 import logist.task.Task;
-import logist.task.TaskSet;
+import logist.task.TaskDistribution;
 import logist.topology.Topology.City;
 
 public class vehicleClass {
@@ -25,10 +25,17 @@ public class vehicleClass {
 	// Last (not yet accepted) achieved goal state
 	private node intermediateGoalNode = null;
 	
+	private Task intermediateTask = null;
+	
 	private double intermediateCosts = 0;
 	
 	// The vehicle
 	private Vehicle vehicle;
+	
+	private TaskDistribution distribution;
+	
+	// Variable to check if we get through more better cities (better = higher task pickup probability)
+	private int lastTaskPickupEstimation = -100;
 	
 	// List of tasks for this agent
 	private ArrayList<Task> taskList = new ArrayList<Task>();
@@ -40,7 +47,8 @@ public class vehicleClass {
 	
 	// Arraylist with costs of opponents
 	
-	public vehicleClass(Vehicle _vehicle) {
+	public vehicleClass(Vehicle _vehicle, TaskDistribution _distribution) {
+		this.distribution = _distribution;
 		this.vehicle = _vehicle;
 	}
 	
@@ -77,6 +85,7 @@ public class vehicleClass {
 	}
 	
 	public void addTask(Task task) {
+		this.intermediateTask = task;
 		this.intermediateTaskList.clear();
 		this.intermediateTaskList = cloneTaskList(this.taskList);
 		this.intermediateTaskList.add(task);
@@ -123,7 +132,11 @@ public class vehicleClass {
 			long distance = computeTaskDistance(newProposedTask);
 			System.out.println("Distance is: "+distance);
 			
-			return marginalCosts / distance;
+			double offer = marginalCosts / distance;
+			
+			double adjustedOffer = adjustUsingFuture(offer);
+			
+			return adjustedOffer;
 
 		} else {
 			System.out.println("Node Queue is empty and we haven't found a solution");
@@ -138,6 +151,61 @@ public class vehicleClass {
 		return (long) pickupCity.distanceTo(task.deliveryCity);
 	}
 	
+	/**
+	 * Create an ArrayList with the Cities on the Path (in right order)
+	 * @return
+	 */
+	private ArrayList<City> createCityPath() {
+		node currentNode = this.lastGoalNode;
+		ArrayList<City> path = new ArrayList<City>();
+		
+		if(currentNode != null) { 
+			City currentCity = currentNode.getCity();
+			path.add(currentCity);
+	
+			while(currentNode.getParent() != null) {
+				City nextCity = currentNode.getParent().getCity();
+				for(City city : currentCity.pathTo(nextCity)) {
+					path.add(city);
+				}
+				currentNode = currentNode.getParent();
+			}
+	
+			Collections.reverse(path);
+		}
+		return path;
+	}
+	
+	
+	/**
+	 * Uses the task distribution to check if there are paths on the way that have high probability of tasks
+	 * 
+	 * @param offer
+	 * @param opponentOffers
+	 * @return
+	 */
+	private double adjustUsingFuture(double offer) {
+		double adjustedOffer = offer;
+		
+		ArrayList<City> cityPath = createCityPath();
+		
+		int counter = 0;
+		
+		for(int i = 0; i < cityPath.size(); i++) {
+			for(int j = i+1; j < cityPath.size(); j++) {
+				if(this.distribution.probability(cityPath.get(i), cityPath.get(j)) > 0.15) {
+				//	cityPath.get(i).hashCode()+cityPath.get(j).hashCode()
+					// Use hashtable to count routes only once?
+					counter++;
+				}
+			}
+		}
+		
+		//System.out.println("Counter: "+counter);
+		
+		return adjustedOffer;
+	}
+	
 	public void acceptTask() {
 		this.lastCosts = this.intermediateCosts;
 		this.lastGoalNode = this.intermediateGoalNode;
@@ -145,7 +213,7 @@ public class vehicleClass {
 		this.taskList = cloneTaskList(this.intermediateTaskList);
 	}
 	
-	public Plan getPath(TaskSet tasks) {
+	public Plan getPath() {
 		// Do backtracking
 		node currentNode = this.lastGoalNode;
 		ArrayList<node> path = new ArrayList<node>();
@@ -162,17 +230,18 @@ public class vehicleClass {
 		City current = path.get(0).getCity();
 		
 		Plan optimalPlan = new Plan(current);
-		System.out.println("Startcity: "+current);
+		//System.out.println("Startcity: "+current);
 		
 		for(int i = 1; i < path.size() ; i++) {
 			currentNode = path.get(i);
 			City nextCity = currentNode.getCity();
 			for(City city : current.pathTo(nextCity)) {
-				System.out.println("City: "+city);
+				//System.out.println("City: "+city);
 				optimalPlan.appendMove(city);
 			}
 			
 			int stateSize = currentNode.getState().size();
+			//System.out.println("--------------------");
 			for(int j=0; j< stateSize; j++) {
 				actionStates currentNodeAction = (actionStates) currentNode.getState().get(j).get(1);
 				actionStates lastNodeAction = (actionStates) path.get(i-1).getState().get(j).get(1);
@@ -181,11 +250,11 @@ public class vehicleClass {
 
 					switch(currentNodeAction) {
 					case PICKEDUP:
-						System.out.println("Pickup: "+currentTask);
+						//System.out.println("Pickup: "+currentTask);
 						optimalPlan.appendPickup(currentTask);
 						break;
 					case DELIVERED:
-						System.out.println("Deliver: "+currentTask);
+						//System.out.println("Deliver: "+currentTask);
 						optimalPlan.appendDelivery(currentTask);
 						break;
 					default:

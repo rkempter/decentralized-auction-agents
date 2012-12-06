@@ -45,14 +45,19 @@ public class AuctionTemplate implements AuctionBehavior {
 		this.vehicleObjectList = new ArrayList<vehicleClass>();
 		
 		for(int i = 0; i < this.vehicleList.size(); i++) {
-			vehicleClass newVehicleObject = new vehicleClass(this.vehicleList.get(i));
+			vehicleClass newVehicleObject = new vehicleClass(this.vehicleList.get(i), distribution);
 			this.vehicleObjectList.add(newVehicleObject);
 			System.out.println("Vehicle starts here: "+this.vehicleList.get(i).getCurrentCity());
 		}
+		
+		// create class for opponent
 	}
 
 
-	public void auctionResult(Task previous, int winner, Long[] bids) {		
+	public void auctionResult(Task previous, int winner, Long[] bids) {
+		
+		// For each opponent bid, 
+		
 		if (winner == agent.id()) {
 			this.vehicleObjectList.get(this.currentTaskToVehicle).acceptTask();
 		}
@@ -76,50 +81,30 @@ public class AuctionTemplate implements AuctionBehavior {
 				this.currentTaskToVehicle = i;
 			}
 		}
-		System.out.println("-------------");
-		System.out.println("Vehicle "+this.currentTaskToVehicle+" gets the task!");
-		System.out.println("Vehicle 0 has the following tasklist: "+this.vehicleObjectList.get(0).getTaskList());
-		System.out.println("Vehicle 1 has the following tasklist: "+this.vehicleObjectList.get(1).getTaskList());
-		System.out.println("Offer: "+minOffer);
+//		System.out.println("-------------");
+//		System.out.println("Vehicle "+this.currentTaskToVehicle+" gets the task!");
+//		System.out.println("Vehicle 0 has the following tasklist: "+this.vehicleObjectList.get(0).getTaskList());
+//		System.out.println("Vehicle 1 has the following tasklist: "+this.vehicleObjectList.get(1).getTaskList());
+//		System.out.println("Offer: "+minOffer);
 
 		return (long) Math.round(minOffer);
 	}
 
 	public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
 		
-		System.out.println("Agent " + agent.id() + " has tasks " + tasks);
+		System.out.println("All tasks " + tasks);
 		
 		List<Plan> plans = new ArrayList<Plan>();
 		for(int i = 0; i < vehicles.size(); i++) {
-			System.out.println("Tasks we have: "+this.vehicleObjectList.get(i).getTaskList());
-			Plan newPlan = this.vehicleObjectList.get(i).getPath(tasks);
+			System.out.println("----------");
+			System.out.println("Agent: "+i+" Tasks we have: "+this.vehicleObjectList.get(i).getTaskList());
+			Plan newPlan = this.vehicleObjectList.get(i).getPath();
 			plans.add(newPlan);
 		}
+		
+		System.out.println("All plans created");
 
 		return plans;
-	}
-
-	private Plan naivePlan(Vehicle vehicle, TaskSet tasks) {
-		City current = vehicle.getCurrentCity();
-		Plan plan = new Plan(current);
-
-		for (Task task : tasks) {
-			// move: current city => pickup location
-			for (City city : current.pathTo(task.pickupCity))
-				plan.appendMove(city);
-
-			plan.appendPickup(task);
-
-			// move: pickup location => delivery location
-			for (City city : task.path())
-				plan.appendMove(city);
-
-			plan.appendDelivery(task);
-
-			// set current city
-			current = task.deliveryCity;
-		}
-		return plan;
 	}
 	
 	public static boolean checkGoalState(ArrayList<ArrayList<Object>> state) {
