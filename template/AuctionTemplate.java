@@ -27,9 +27,7 @@ public class AuctionTemplate implements AuctionBehavior {
 	private Topology topology;
 	private TaskDistribution distribution;
 	private Agent agent;
-	private Random random;
 	private List<Vehicle> vehicleList;
-	private City currentCity;
 	private List<vehicleClass> vehicleObjectList;
 	
 	private int currentTaskToVehicle = 0;
@@ -59,14 +57,14 @@ public class AuctionTemplate implements AuctionBehavior {
 		// For each opponent bid, 
 		
 		if (winner == agent.id()) {
-			this.vehicleObjectList.get(this.currentTaskToVehicle).acceptTask();
+			this.vehicleObjectList.get(this.currentTaskToVehicle).acceptTask(previous);
 		}
 	}
 	
 	@Override
 	public Long askPrice(Task task) {
 		
-		System.out.println("Taskid: "+task.id);
+		System.out.println("Task we get: "+task);
 		
 		// Start computation for marginalCost
 		
@@ -81,24 +79,18 @@ public class AuctionTemplate implements AuctionBehavior {
 				this.currentTaskToVehicle = i;
 			}
 		}
-//		System.out.println("-------------");
-//		System.out.println("Vehicle "+this.currentTaskToVehicle+" gets the task!");
-//		System.out.println("Vehicle 0 has the following tasklist: "+this.vehicleObjectList.get(0).getTaskList());
-//		System.out.println("Vehicle 1 has the following tasklist: "+this.vehicleObjectList.get(1).getTaskList());
-//		System.out.println("Offer: "+minOffer);
-
+		
 		return (long) Math.round(minOffer);
 	}
 
 	public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
 		
-		System.out.println("All tasks " + tasks);
+		System.out.println("The tasks we get: "+tasks);
 		
 		List<Plan> plans = new ArrayList<Plan>();
 		for(int i = 0; i < vehicles.size(); i++) {
-			System.out.println("----------");
-			System.out.println("Agent: "+i+" Tasks we have: "+this.vehicleObjectList.get(i).getTaskList());
-			Plan newPlan = this.vehicleObjectList.get(i).getPath();
+			this.vehicleObjectList.get(i).taskListHack(tasks);
+			Plan newPlan = this.vehicleObjectList.get(i).getPath(tasks);
 			plans.add(newPlan);
 		}
 		

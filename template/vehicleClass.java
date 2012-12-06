@@ -9,6 +9,7 @@ import logist.plan.Plan;
 import logist.simulation.Vehicle;
 import logist.task.Task;
 import logist.task.TaskDistribution;
+import logist.task.TaskSet;
 import logist.topology.Topology.City;
 
 public class vehicleClass {
@@ -17,8 +18,8 @@ public class vehicleClass {
 	private double lastCosts = 0;
 	
 	// List of visited nodes the last time
-	private ArrayList<node> lastVisitedNodes = null;
-	private ArrayList<node> intermediateVisitedNodes = null;
+	private ArrayList<node> lastVisitedNodes = new ArrayList<node>();
+	private ArrayList<node> intermediateVisitedNodes = new ArrayList<node>();
 	
 	// Last accepted goal state
 	private node lastGoalNode = null;
@@ -32,7 +33,7 @@ public class vehicleClass {
 	// The vehicle
 	private Vehicle vehicle;
 	
-	private TaskDistribution distribution;
+	private TaskDistribution distribution = null;
 	
 	// Variable to check if we get through more better cities (better = higher task pickup probability)
 	private int lastTaskPickupEstimation = -100;
@@ -41,9 +42,6 @@ public class vehicleClass {
 	private ArrayList<Task> taskList = new ArrayList<Task>();
 	
 	private ArrayList<Task> intermediateTaskList = new ArrayList<Task>();
-	
-	// Arraylist with task of opponents
-	private ArrayList<ArrayList<Task>> opponentTaskList = new ArrayList<ArrayList<Task>>();
 	
 	// Arraylist with costs of opponents
 	
@@ -72,6 +70,15 @@ public class vehicleClass {
 		}
 		
 		return returnList;
+	}
+	
+	public void taskListHack(TaskSet tasks) {
+		for(int i = 0; i < this.taskList.size(); i++) {
+			int id = this.taskList.get(i).id;
+			
+			this.taskList.set(i, (Task) tasks.toArray()[id]);
+		}
+		System.out.println("Modified tasklist: "+this.taskList);
 	}
 	
 	private ArrayList<node> cloneNodeList(ArrayList<node> list) {
@@ -114,6 +121,7 @@ public class vehicleClass {
 			currentState = currentNode.getState();
 			i++;
 		}
+		
 		System.out.println("Iteration: "+i);
 		
 		if(AuctionTemplate.checkGoalState(currentState)) {
@@ -129,10 +137,7 @@ public class vehicleClass {
 			this.intermediateVisitedNodes = visitedNodes;
 			this.intermediateCosts = newCosts;
 			
-			long distance = computeTaskDistance(newProposedTask);
-			System.out.println("Distance is: "+distance);
-			
-			double offer = marginalCosts / distance;
+			double offer = marginalCosts;
 			
 			double adjustedOffer = adjustUsingFuture(offer);
 			
@@ -143,12 +148,6 @@ public class vehicleClass {
 			
 			return 10000;
 		}
-	}
-	
-	private long computeTaskDistance(Task task) {
-		City pickupCity = task.pickupCity;
-		
-		return (long) pickupCity.distanceTo(task.deliveryCity);
 	}
 	
 	/**
@@ -206,14 +205,14 @@ public class vehicleClass {
 		return adjustedOffer;
 	}
 	
-	public void acceptTask() {
+	public void acceptTask(Task task) {
 		this.lastCosts = this.intermediateCosts;
 		this.lastGoalNode = this.intermediateGoalNode;
 		this.lastVisitedNodes = cloneNodeList(this.intermediateVisitedNodes);
-		this.taskList = cloneTaskList(this.intermediateTaskList);
+		this.taskList.add(task);
 	}
 	
-	public Plan getPath() {
+	public Plan getPath(TaskSet tasks) {
 		// Do backtracking
 		node currentNode = this.lastGoalNode;
 		ArrayList<node> path = new ArrayList<node>();
@@ -231,7 +230,7 @@ public class vehicleClass {
 		
 		Plan optimalPlan = new Plan(current);
 		//System.out.println("Startcity: "+current);
-		
+		System.out.println("Tasklist: "+ this.taskList);
 		for(int i = 1; i < path.size() ; i++) {
 			currentNode = path.get(i);
 			City nextCity = currentNode.getCity();
@@ -247,15 +246,16 @@ public class vehicleClass {
 				actionStates lastNodeAction = (actionStates) path.get(i-1).getState().get(j).get(1);
 				if(currentNodeAction != lastNodeAction) {
 					Task currentTask = (Task) path.get(i).getState().get(j).get(0);
+					Task currentTaskFromTaskSet = (Task) tasks.toArray()[currentTask.id];
 
 					switch(currentNodeAction) {
 					case PICKEDUP:
 						//System.out.println("Pickup: "+currentTask);
-						optimalPlan.appendPickup(currentTask);
+						optimalPlan.appendPickup(currentTaskFromTaskSet);
 						break;
 					case DELIVERED:
 						//System.out.println("Deliver: "+currentTask);
-						optimalPlan.appendDelivery(currentTask);
+						optimalPlan.appendDelivery(currentTaskFromTaskSet);
 						break;
 					default:
 						System.out.println("_OO_");
