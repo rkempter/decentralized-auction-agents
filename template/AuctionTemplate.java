@@ -64,8 +64,6 @@ public class AuctionTemplate implements AuctionBehavior {
 	@Override
 	public Long askPrice(Task task) {
 		
-		System.out.println("Task we get: "+task);
-		
 		// Start computation for marginalCost
 		
 		double minOffer = 100000;
@@ -85,11 +83,8 @@ public class AuctionTemplate implements AuctionBehavior {
 
 	public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
 		
-		System.out.println("The tasks we get: "+tasks);
-		
 		List<Plan> plans = new ArrayList<Plan>();
 		for(int i = 0; i < vehicles.size(); i++) {
-			this.vehicleObjectList.get(i).taskListHack(tasks);
 			Plan newPlan = this.vehicleObjectList.get(i).getPath(tasks);
 			plans.add(newPlan);
 		}

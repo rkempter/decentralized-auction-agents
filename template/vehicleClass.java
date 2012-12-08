@@ -72,15 +72,6 @@ public class vehicleClass {
 		return returnList;
 	}
 	
-	public void taskListHack(TaskSet tasks) {
-		for(int i = 0; i < this.taskList.size(); i++) {
-			int id = this.taskList.get(i).id;
-			
-			this.taskList.set(i, (Task) tasks.toArray()[id]);
-		}
-		System.out.println("Modified tasklist: "+this.taskList);
-	}
-	
 	private ArrayList<node> cloneNodeList(ArrayList<node> list) {
 		ArrayList<node> returnList = new ArrayList<node>();
 		
@@ -108,7 +99,7 @@ public class vehicleClass {
 		int i = 0;
 		
 		while(!AuctionTemplate.checkGoalState(currentState)) {
-			System.out.println("State: "+currentState);
+			//System.out.println("State: "+currentState);
 			ArrayList<node> childQueue = currentNode.expandNodes();
 			nodeQueue.addAll(childQueue);
 			try{
@@ -139,7 +130,7 @@ public class vehicleClass {
 			
 			double offer = marginalCosts;
 			
-			double adjustedOffer = adjustUsingFuture(offer);
+			double adjustedOffer = offer * 1.1; //adjustUsingFuture(offer);
 			
 			return adjustedOffer;
 
@@ -216,6 +207,9 @@ public class vehicleClass {
 		// Do backtracking
 		node currentNode = this.lastGoalNode;
 		ArrayList<node> path = new ArrayList<node>();
+		
+		int capacity = this.vehicle.capacity();
+		System.out.println("Capacity vehicle: "+capacity);
 
 		while(currentNode != null) {
 			currentNode.printState();
@@ -224,48 +218,65 @@ public class vehicleClass {
 		}
 		
 		Collections.reverse(path);
-		System.out.println("Path: "+path);
-		
-		City current = path.get(0).getCity();
-		
-		Plan optimalPlan = new Plan(current);
-		//System.out.println("Startcity: "+current);
-		System.out.println("Tasklist: "+ this.taskList);
-		for(int i = 1; i < path.size() ; i++) {
-			currentNode = path.get(i);
-			City nextCity = currentNode.getCity();
-			for(City city : current.pathTo(nextCity)) {
-				//System.out.println("City: "+city);
-				optimalPlan.appendMove(city);
-			}
-			
-			int stateSize = currentNode.getState().size();
-			//System.out.println("--------------------");
-			for(int j=0; j< stateSize; j++) {
-				actionStates currentNodeAction = (actionStates) currentNode.getState().get(j).get(1);
-				actionStates lastNodeAction = (actionStates) path.get(i-1).getState().get(j).get(1);
-				if(currentNodeAction != lastNodeAction) {
-					Task currentTask = (Task) path.get(i).getState().get(j).get(0);
-					Task currentTaskFromTaskSet = (Task) tasks.toArray()[currentTask.id];
+		Plan optimalPlan = Plan.EMPTY;
+		System.out.println("Pathlength: "+path.size());
 
-					switch(currentNodeAction) {
-					case PICKEDUP:
-						//System.out.println("Pickup: "+currentTask);
-						optimalPlan.appendPickup(currentTaskFromTaskSet);
-						break;
-					case DELIVERED:
-						//System.out.println("Deliver: "+currentTask);
-						optimalPlan.appendDelivery(currentTaskFromTaskSet);
-						break;
-					default:
-						System.out.println("_OO_");
+		if(path.size() != 0) {
+			City current = path.get(0).getCity();
+		
+			optimalPlan = new Plan(current);
+		
+			//System.out.println("Startcity: "+current);
+			System.out.println("Tasklist: "+ this.taskList);
+			for(int i = 1; i < path.size() ; i++) {
+				currentNode = path.get(i);
+				City nextCity = currentNode.getCity();
+				for(City city : current.pathTo(nextCity)) {
+					//System.out.println("City: "+city);
+					optimalPlan.appendMove(city);
+				}
+				
+				int stateSize = currentNode.getState().size();
+				//System.out.println("--------------------");
+				for(int j=0; j< stateSize; j++) {
+					actionStates currentNodeAction = (actionStates) currentNode.getState().get(j).get(1);
+					actionStates lastNodeAction = (actionStates) path.get(i-1).getState().get(j).get(1);
+					if(currentNodeAction != lastNodeAction) {
+						Task currentTask = (Task) path.get(i).getState().get(j).get(0);
+
+						System.out.println("CurrentTask: "+currentTask);
+						
+						Task currentTaskFromTaskSet = getTaskFromTaskSet(currentTask.id, tasks);
+	
+						switch(currentNodeAction) {
+						case PICKEDUP:
+							optimalPlan.appendPickup(currentTaskFromTaskSet);
+							capacity -= currentTaskFromTaskSet.weight;
+							break;
+						case DELIVERED:
+							optimalPlan.appendDelivery(currentTaskFromTaskSet);
+							capacity += currentTaskFromTaskSet.weight;
+							break;
+						default:
+							System.out.println("_OO_");
+						}
 					}
 				}
+				current = nextCity;
 			}
-			current = nextCity;
 		}
 		System.out.println(optimalPlan);
 		return optimalPlan;
+	}
+	
+	public Task getTaskFromTaskSet(int id, TaskSet tasks) {
+		for(int i = 0; i < tasks.size(); i++) {
+			Task currentTask = (Task) tasks.toArray()[i];
+			if (currentTask.id == id) {
+				return currentTask;
+			}
+		}
+		return null;
 	}
 	
 	public Vehicle getVehicle() {

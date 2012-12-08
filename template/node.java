@@ -161,7 +161,7 @@ public class node {
 	 */
 	private int calculateCapacity(int capacity, Task currentTaskNodeTask, actionStates taskState) {
 		int newCapacity = 0;
-		if(taskState == actionStates.PICKEDUP) {
+		if(taskState == actionStates.INITSTATE) {
 			newCapacity = capacity - currentTaskNodeTask.weight;
 		} else {
 			newCapacity = capacity + currentTaskNodeTask.weight;
