@@ -18,7 +18,14 @@ public class vehicleClass {
 	private static final double STARTING_INCOMING = .1;
 	private static final double MAXIMUM_INCOMING= .7;
 	private static final double MINIMUM_INCOMING= .05;
-	private ArrayList<ArrayList<Object>> biddingHistory= new ArrayList<ArrayList<Object>>();
+	
+	
+	private int winCounter = 0;
+	private int previousHighPotentialTasks = 0;
+	private float opponentMinimalBid = 1250;
+	
+	
+	private ArrayList<Float> biddingHistory= new ArrayList<Float>();
 	private double actualIncoming= STARTING_INCOMING;
 	private int timeSinceLastChange= 0;
 	// Total cost last time
@@ -136,7 +143,13 @@ public class vehicleClass {
 			this.intermediateCosts = newCosts;
 
 			double offer = marginalCosts;
-			return computeIncoming(offer);
+			if(offer <= 0) {
+				offer = this.opponentMinimalBid < 750 ? 750 : this.opponentMinimalBid;
+			}
+			
+			offer = adjustUsingDistribution(offer);
+			
+			return adjustBiddingOffer(offer);
 
 		} else {
 			System.out.println("Node Queue is empty and we haven't found a solution");
@@ -177,11 +190,11 @@ public class vehicleClass {
 	 * @param opponentOffers
 	 * @return
 	 */
-	private double adjustUsingFuture(double offer) {
-		double adjustedOffer = offer;
+	private double adjustUsingDistribution(double offer) {
 
 		ArrayList<City> cityPath = createCityPath();
 
+		int lastCounter = this.previousHighPotentialTasks;
 		int counter = 0;
 
 		for(int i = 0; i < cityPath.size(); i++) {
@@ -193,6 +206,11 @@ public class vehicleClass {
 				}
 			}
 		}
+		
+		this.previousHighPotentialTasks = counter;
+		int difference = lastCounter - counter;
+		
+		double adjustedOffer = (1 - ((1/(1+Math.exp(-1/2*difference)) - 0.5)*0.2)) * offer;
 
 		//System.out.println("Counter: "+counter);
 
@@ -272,6 +290,7 @@ public class vehicleClass {
 		return optimalPlan;
 	}
 
+
 	public Task getTaskFromTaskSet(int id, TaskSet tasks) {
 		for(int i = 0; i < tasks.size(); i++) {
 			Task currentTask = (Task) tasks.toArray()[i];
@@ -290,156 +309,37 @@ public class vehicleClass {
 		return this.taskList;
 	}
 	//add bids to the history of bidding
-	public void addBiddingHistory(float ourBid, float opponentBid){
-		ArrayList<Object> bids= new ArrayList<Object>();
-		bids.add(ourBid);					//0 is our bid
-		bids.add(opponentBid);				//1 is opponent bid
-		biddingHistory.add(bids);
-		computeHistoryTracking();
-	}
-	//computing index in biddingHistory with same behavior and computing if i m getting closer to the bids of the others (either winning or loosing)
-	public void computeHistoryTracking(){
-		int i= biddingHistory.size()-1;
-		boolean won= false;
-		int historyIndex= 0;
-		if((Float)biddingHistory.get(i).get(0)< (Float)biddingHistory.get(i).get(1)) won= true;		//result of last auction 
-		boolean foundChanging= false;
-		while(i>=0 && foundChanging==false){
-			if(won==true && (Float)biddingHistory.get(i).get(0)> (Float)biddingHistory.get(i).get(1)){
-				foundChanging= true;
-				if(biddingHistory.size()>1) historyIndex= i+1;
-			}
-			else if(won==false && (Float)biddingHistory.get(i).get(0)< (Float)biddingHistory.get(i).get(1)){
-				foundChanging= true;
-				if(biddingHistory.size()>1) historyIndex= i+1;
-			}
-			i--;
+	public void addBiddingHistory(float ourBid, float opponentBid, boolean win) {
+		if (!win && opponentBid < this.opponentMinimalBid) {
+			this.opponentMinimalBid = opponentBid;
 		}
-		//extract last auctions with same result from biddingHistory (if any)
-		ArrayList<ArrayList<Float>> bidSegment= new ArrayList<ArrayList<Float>>();
-		for(int j= historyIndex; j< biddingHistory.size(); j++){
-			ArrayList<Float> tmp= new ArrayList<Float>();
-			tmp.add((Float)biddingHistory.get(j).get(0));
-			tmp.add((Float)biddingHistory.get(j).get(1));
-			bidSegment.add(tmp);
-		}
-		ArrayList<ArrayList<Float>> normalizedBidChunk= normalizeBids(bidSegment);
-		System.out.println(normalizedBidChunk);
-		float sum= 0;
-		float average= 0;
-		for(int j= 0; j< normalizedBidChunk.size(); j++){
-			if(won) sum += (Float)normalizedBidChunk.get(j).get(0);
-			else sum += (Float)normalizedBidChunk.get(j).get(1);
-		}
-		average= sum/(normalizedBidChunk.size());
-		//the value of behavior in case of winning is positive if our bid is getting closer to the bid of the others, negative if we are getting farther 
-		//the value of behavior in case of loosing is positive if our bid is getting closer to the bid of the others, negative if we are getting farther (no chance to win)
-		int []behav;
-		behav= new int[2];
-		for(int j= 0; j< normalizedBidChunk.size(); j++){
-			if(won){
-				if(j<= normalizedBidChunk.size()/2){
-					if((Float)normalizedBidChunk.get(j).get(0)-average<= 0)	behav[0]++;
-					else if((Float)normalizedBidChunk.get(j).get(0)-average> 0) behav[0]--;
-				}
-				else if(j> normalizedBidChunk.size()/2){
-					if((Float)normalizedBidChunk.get(j).get(0)-average<= 0)	behav[1]++;
-					else if((Float)normalizedBidChunk.get(j).get(0)-average> 0) behav[1]--;
-				}
-			}
-			else if(!won){
-				if(j<= normalizedBidChunk.size()/2){
-					if((Float)normalizedBidChunk.get(j).get(1)-average<= 0)	behav[0]++;
-					else if((Float)normalizedBidChunk.get(j).get(1)-average> 0) behav[0]--;
-				}
-				else if(j> normalizedBidChunk.size()/2){
-					if((Float)normalizedBidChunk.get(j).get(1)-average<= 0)	behav[1]++;
-					else if((Float)normalizedBidChunk.get(j).get(1)-average> 0) behav[1]--;
-				}
-			}
-		}
-		boolean behavior = false;		//false means i m getting further 
-		if(behav[0]>=0 && behav[0]>=behav[1])	behavior= true;
-		else if(behav[0]<0 && behav[0]<behav[1])	behavior= false;
-		System.out.println(">>>>>>"+ behavior);
-
-		biddingHistory.get(biddingHistory.size()-1).add(won);																			//memorize the result (index 2)
-		biddingHistory.get(biddingHistory.size()-1).add(behavior);																		//memorize the behavior	(index 3)
-		//means i keep having the same behavior than before (getting closer or getting farther)
-		if(biddingHistory.size()>1 && (((Boolean)biddingHistory.get(biddingHistory.size()-2).get(3)==true && behavior==true)||((Boolean)biddingHistory.get(biddingHistory.size()-2).get(3)==false && behavior==false))){
-			timeSinceLastChange++;
-		}
-		//means i changed behavior (getting closer or getting farther)
-		else {
-			timeSinceLastChange= 0;			
+		if(true == win) {
+			float result = opponentBid / ourBid;
+			this.winCounter++;
+			this.biddingHistory.add(result);
+		} else {
+			this.winCounter = 0;
+			this.biddingHistory = new ArrayList();
 		}
 	}
-	public ArrayList<ArrayList<Float>> normalizeBids(ArrayList<ArrayList<Float>> bidSegment){
-		ArrayList<ArrayList<Float>> normalizeSegmentBids= new ArrayList<ArrayList<Float>>();
-		boolean won= false;
-		if(bidSegment.get(bidSegment.size()-1).get(1)>bidSegment.get(bidSegment.size()-1).get(0))	won= true;
-		for(int i=0; i< bidSegment.size(); i++){
-			ArrayList<Float> normalizedBids= new ArrayList<Float>();
-			if(won==true){		//normalizing wrt opponent bids (we won)		(opponent bids are 1 and ours are between 0 and 1)
-				normalizedBids.add(bidSegment.get(i).get(0)/bidSegment.get(i).get(1));
-				normalizedBids.add(bidSegment.get(i).get(1)/bidSegment.get(i).get(1));
-			}
-			else{			//normalizing wrt our bids (we lost)			(our bids are 1 and opponent bids are between 0 and 1)
-				normalizedBids.add(bidSegment.get(i).get(0)/bidSegment.get(i).get(0));
-				normalizedBids.add(bidSegment.get(i).get(1)/bidSegment.get(i).get(0));
-			}
-			normalizeSegmentBids.add(normalizedBids);
+	
+	private double adjustBiddingOffer(double offer) {
+		float sum = 0;
+		float average = 1;
+		int x = this.winCounter;
+		int i = 0;
+		for(; i < this.biddingHistory.size(); i++) {
+			sum += this.biddingHistory.get(i);
 		}
-		return normalizeSegmentBids;
+		
+		if(sum > 0) {
+			average = sum / i;
+		}
+		
+		double adjustedAverage = ((x+1) / (x+5) * Math.abs(1-average)) + 1;
+		
+		System.out.println("AdjustedAverage with which we multiply the offer "+adjustedAverage);
+		
+		return (adjustedAverage * offer);
 	}
-	public double computeIncoming(double bid){
-		//case we won 
-		if(biddingHistory.size()>1 && (Boolean)biddingHistory.get(biddingHistory.size()-1).get(2)==true){
-			//we are getting closer to the bid of the others	the function used: http://www.wolframalpha.com/input/?i=plot+%28x-4%29%2F%282*sqrt%281%2B%28x-4%29^2%29%29+%2B0.5
-			if((Boolean)biddingHistory.get(biddingHistory.size()-1).get(3)==true){
-				double value= (timeSinceLastChange-4)/(2*Math.sqrt(1+ Math.pow((double)(timeSinceLastChange-4),2.0)))	 +.5;
-				//actualIncoming is in the range MINIMUM_INCOMING MAXIMUM_INCOMING according to the value of the function
-				actualIncoming= MINIMUM_INCOMING + (MAXIMUM_INCOMING*value);
-				System.out.println("case we won and we are getting closer to the other bids. actualIncoming: "+ (1+actualIncoming));
-				//returns the bid incremented of the wanted percentage
-				return bid*(1+actualIncoming);
-			}
-			//we are getting further from the bid of the others	the function used : http://www.wolframalpha.com/input/?i=plot+exp%28x%29%2F20
-			else if((Boolean)biddingHistory.get(biddingHistory.size()-1).get(3)==false){
-				double value= Math.exp(timeSinceLastChange)/20;
-				//actualIncoming is in the range MINIMUM_INCOMING MAXIMUM_INCOMING according to the value of the function
-				actualIncoming= MINIMUM_INCOMING+ (MAXIMUM_INCOMING*Math.min(value, 1.0));
-				System.out.println("case we won and we are getting further from the other bids. actualIncoming: "+ (1+actualIncoming));
-				//returns the bid incremented of the wanted percentage
-				return bid*(1+actualIncoming);
-			}
-		}
-		//case we lost
-		else if(biddingHistory.size()>1 && (Boolean)biddingHistory.get(biddingHistory.size()-1).get(2)==false){
-			//we are getting closer to the bids of the others	 function used: http://www.wolframalpha.com/input/?i=plot+-%281%2F5%29x%2B1
-			if((Boolean)biddingHistory.get(biddingHistory.size()-1).get(3)==true){
-				double value= -(1/5)*timeSinceLastChange +1;
-				//actualIncoming is between the range of previous actualIncoming and the MINIMUM_INCOMING according to the value returned by the function
-				actualIncoming= MINIMUM_INCOMING + actualIncoming*value;
-				System.out.println("case we lost and we are getting closer to the other bids. actualIncoming: "+ actualIncoming);
-				//returns a bid which contains a smaller reward compared to the previous auction
-				return bid*(1+actualIncoming);
-			}
-			//we are getting further from the bids of the others(low chance to win, the others are more efficient). function used: http://www.wolframalpha.com/input/?i=plot+-exp%28x%29%2F20%2B+1
-			else if((Boolean)biddingHistory.get(biddingHistory.size()-1).get(3)==false){
-				System.out.println("---->THEY ARE BEING EFFICIENT!!!!!!!!");
-				double value= -Math.exp(timeSinceLastChange)/20 +1;
-				actualIncoming= MINIMUM_INCOMING + actualIncoming*value;
-				System.out.println("case we lost and we are getting further from the other bids. actualIncoming: "+ actualIncoming);
-				//returns a bid which contains a smaller reward compared to the previous auction
-				return bid*(1+actualIncoming);
-			}
-		}
-		else{
-			return bid* (1+actualIncoming);
-		}
-
-		return bid;
-	}
-
 }

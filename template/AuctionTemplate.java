@@ -57,22 +57,18 @@ public class AuctionTemplate implements AuctionBehavior {
 		
 		for(int i=0; i< this.vehicleObjectList.size(); i++){
 			System.out.println("-----------vehicle "+vehicleObjectList.get(i).getVehicle().id()+" --------");
-			float ourBid;
-			float opponentBid= 1000;		//fake bc no tournament
-			if(agent.id()==1){
-				ourBid= bids[1];
-				opponentBid= bids[0];
+			float ourBid = bids[agent.id()];
+			float opponentBid = bids[agent.id() % 1]; 
+			
+			boolean win = false;
+			
+			if(agent.id() == winner) {
+				win = true;	
 			}
-			else{
-				ourBid= bids[0];
-				System.out.println("---->"+ bids.length);
-				System.out.println("---->"+ bids[0]);
-
-				if(bids.length>1) opponentBid= bids[1];
-			}
-			this.vehicleObjectList.get(i).addBiddingHistory(ourBid, opponentBid);	
+			
+			this.vehicleObjectList.get(i).addBiddingHistory(ourBid, opponentBid, win);	
 		}
-		System.out.println("　　　　Our final bid is: "+ bids[0]);
+		System.out.println("　　　　Our final bid is: "+ bids[agent.id()]);
 		// For each opponent bid, 	
 		if (winner == agent.id()) {
 			this.vehicleObjectList.get(this.currentTaskToVehicle).acceptTask(previous);
